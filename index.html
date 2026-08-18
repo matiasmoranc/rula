@@ -27,6 +27,8 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 .history{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .ball{width:38px;height:38px;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:700}
 .zero{background:#185a2a}
+.ball.hit{background:#185a2a}
+.ball.miss{background:#6b1f1f}
 .clear{width:100%;margin-top:12px;background:#4a1f1f;color:#fff}
 .msg{font-size:13px;color:#aaa;margin-top:10px}
 .info{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #333}
@@ -46,6 +48,11 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 .kpi small{display:block;color:#aaa;margin-bottom:6px}
 .kpi b{font-size:24px;display:block}
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.balance-kpi{grid-column:1/-1;padding:18px}
+.balance-kpi b{font-size:34px}
+.balance-pos{color:#5ee58a}
+.balance-neg{color:#ff7777}
+.balance-zero{color:#fff}
 @media(max-width:520px){
   .row{flex-direction:column}
   .add{width:100%}
@@ -68,10 +75,11 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 
 <label for="ventana">Cantidad de tiradas a analizar</label>
 <select id="ventana">
+<option value="5">Últimas 5 tiradas</option>
+<option value="8">Últimas 8 tiradas</option>
 <option value="12">Últimas 12 tiradas</option>
-<option value="20">Últimas 20 tiradas</option>
-<option value="25">Últimas 25 tiradas</option>
-<option value="30">Últimas 30 tiradas</option>
+<option value="15">Últimas 15 tiradas</option>
+<option value="18">Últimas 18 tiradas</option>
 </select>
 
 <label for="multiplo">Múltiplo / apuesta base</label>
@@ -119,8 +127,7 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
 
 <div class="card">
 <div class="kpis">
-  <div class="kpi"><small>Ganancia total</small><b id="gananciaTotal">$0</b></div>
-  <div class="kpi"><small>Total apostado</small><b id="apostadoTotal">$0</b></div>
+  <div class="kpi balance-kpi"><small>Balance actual</small><b id="balanceActual" class="balance-zero">$0</b></div>
   <div class="kpi"><small>Aciertos</small><b id="aciertos">0</b></div>
   <div class="kpi"><small>Fallos</small><b id="fallos">0</b></div>
 </div>
@@ -145,13 +152,13 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
 (function(){
 
   var tiradas=[];
+  var resultados=[];
   var mano=1;
   var perdidas=0;
   var apuestaActual=5;
   var grupoActual=1;
   var ultimoEstado='—';
-  var gananciaTotal=0;
-  var apostadoTotal=0;
+  var balance=0;
   var aciertos=0;
   var fallos=0;
 
@@ -159,13 +166,14 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
     var guardado=JSON.parse(localStorage.getItem('asistente_docenas_apuestas_v1')||'null');
     if(guardado){
       tiradas=guardado.tiradas||[];
+      resultados=guardado.resultados||[];
       mano=guardado.mano||1;
       perdidas=guardado.perdidas||0;
       apuestaActual=guardado.apuestaActual||5;
       grupoActual=guardado.grupoActual||1;
       ultimoEstado=guardado.ultimoEstado||'—';
-      gananciaTotal=guardado.gananciaTotal||0;
-      apostadoTotal=guardado.apostadoTotal||0;
+      // Compatibilidad con sesiones anteriores: gananciaTotal - perdidas equivale al balance real actual.
+      balance=(typeof guardado.balance==='number') ? guardado.balance : ((guardado.gananciaTotal||0)-(guardado.perdidas||0));
       aciertos=guardado.aciertos||0;
       fallos=guardado.fallos||0;
       if(guardado.metodo) document.getElementById('metodo').value=guardado.metodo;
@@ -204,17 +212,24 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
     return '$'+Number(n).toLocaleString('es-UY');
   }
 
+  function pesosBalance(n){
+    var valor=Math.abs(Number(n)).toLocaleString('es-UY');
+    if(n>0) return '+$'+valor;
+    if(n<0) return '-$'+valor;
+    return '$0';
+  }
+
   function guardar(){
     try{
       localStorage.setItem('asistente_docenas_apuestas_v1',JSON.stringify({
         tiradas:tiradas,
+        resultados:resultados,
         mano:mano,
         perdidas:perdidas,
         apuestaActual:apuestaActual,
         grupoActual:grupoActual,
         ultimoEstado:ultimoEstado,
-        gananciaTotal:gananciaTotal,
-        apostadoTotal:apostadoTotal,
+        balance:balance,
         aciertos:aciertos,
         fallos:fallos,
         metodo:metodo.value,
@@ -303,8 +318,9 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
     document.getElementById('totalMano').textContent=pesos(apuestaActual*12);
     document.getElementById('perdidas').textContent=pesos(perdidas);
     document.getElementById('mano').textContent=mano;
-    document.getElementById('gananciaTotal').textContent=pesos(gananciaTotal);
-    document.getElementById('apostadoTotal').textContent=pesos(apostadoTotal);
+    var balanceEl=document.getElementById('balanceActual');
+    balanceEl.textContent=pesosBalance(balance);
+    balanceEl.className=balance>0?'balance-pos':(balance<0?'balance-neg':'balance-zero');
     document.getElementById('aciertos').textContent=aciertos;
     document.getElementById('fallos').textContent=fallos;
 
@@ -317,11 +333,16 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
 
     historial.innerHTML='';
 
-    var visibles=tiradas.slice(-60);
+    var inicio=Math.max(0,tiradas.length-60);
+    var visibles=tiradas.slice(inicio);
+    var resultadosVisibles=resultados.slice(inicio);
 
-    for(var k=0;k<visibles.length;k++){
+    for(var k=visibles.length-1;k>=0;k--){
       var el=document.createElement('div');
-      el.className='ball'+(visibles[k]===0?' zero':'');
+      var claseResultado='';
+      if(resultadosVisibles[k]===true) claseResultado=' hit';
+      if(resultadosVisibles[k]===false) claseResultado=' miss';
+      el.className='ball'+claseResultado+(visibles[k]===0 && resultadosVisibles[k]===undefined?' zero':'');
       el.textContent=visibles[k];
       historial.appendChild(el);
     }
@@ -353,21 +374,17 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
     var acierto=(grupoSalido===grupoActual);
 
     tiradas.push(n);
+    resultados.push(acierto);
 
     var totalEstaMano=apuestaActual*12;
-    apostadoTotal += totalEstaMano;
-
     if(acierto){
       ultimoEstado='ACIERTO';
       aciertos++;
 
-      /*
-        Ganancia neta del ciclo:
-        premio - apuesta de esta mano - pérdidas anteriores.
-      */
+      // En un acierto recibimos 36x el valor apostado al número ganador.
+      // El resultado neto de esta mano es premio menos lo apostado en los 12 números.
       var premio=apuestaActual*36;
-      var gananciaCiclo=premio-totalEstaMano-perdidas;
-      gananciaTotal += gananciaCiclo;
+      balance += premio-totalEstaMano;
 
       /*
         Si acertamos, recuperamos y reiniciamos.
@@ -382,10 +399,9 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
       ultimoEstado='FALLO';
       fallos++;
 
-      /*
-        Sumamos lo perdido en esta mano.
-      */
-      perdidas += apuestaActual*12;
+      // En un fallo se pierde todo lo apostado en esta mano.
+      balance -= totalEstaMano;
+      perdidas += totalEstaMano;
       mano++;
 
       grupoActual=elegirGrupo();
@@ -427,13 +443,13 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
   clear.addEventListener('click',function(){
     if(confirm('¿Borrar todo el historial y reiniciar la progresión?')){
       tiradas=[];
+      resultados=[];
       mano=1;
       perdidas=0;
       apuestaActual=parseInt(multiplo.value,10);
       grupoActual=1;
       ultimoEstado='—';
-      gananciaTotal=0;
-      apostadoTotal=0;
+      balance=0;
       aciertos=0;
       fallos=0;
       try{localStorage.removeItem('asistente_docenas_apuestas_v1');}catch(e){}
