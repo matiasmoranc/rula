@@ -13,7 +13,7 @@ p{color:#bbb;line-height:1.4}
 .row{display:flex;gap:8px}
 input,select,button{font-size:18px;border-radius:12px;border:1px solid #444;padding:14px}
 input,select{background:#0e0e0e;color:#fff}
-input{width:100%;min-width:0}
+input{width:100%;min-width:0;max-width: calc(100% - 28px);}
 select{width:100%}
 button{background:#fff;color:#111;font-weight:700;border:0}
 .add{min-width:110px}
@@ -36,7 +36,8 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 .bad{color:#ff7777}
 .money{font-size:34px!important}
 .topbar{display:flex;justify-content:flex-end;margin-bottom:8px}
-.menu-btn{width:48px;height:48px;padding:0;background:#1d1d1d;color:#fff;border:1px solid #444;font-size:24px;line-height:1}
+.menu-btn{    width: 40px;
+    height: 25px;padding:0;background:#1d1d1d;color:#fff;border:1px solid #444;font-size:19px;line-height:1}
 .menu-panel{display:none;background:#1d1d1d;border-radius:16px;padding:16px;margin:12px 0}
 .menu-panel.open{display:block}
 .menu-panel label{display:block;color:#aaa;font-size:13px;margin:10px 0 6px}
@@ -61,9 +62,8 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 <div id="menuPanel" class="menu-panel">
 <label for="metodo">Método</label>
 <select id="metodo">
+  <option value="caliente">Elegir la docena más salida</option>
 <option value="fria">Elegir la docena menos salida</option>
-<option value="caliente">Elegir la docena más salida</option>
-<option value="azar">Elegir una docena al azar</option>
 </select>
 
 <label for="ventana">Cantidad de tiradas a analizar</label>
@@ -295,7 +295,8 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
     document.getElementById('c1').textContent=counts[1];
     document.getElementById('c2').textContent=counts[2];
     document.getElementById('c3').textContent=counts[3];
-    document.getElementById('tituloVentana').textContent='Últimas '+ventana.value+' tiradas';
+    var tituloVentana=document.getElementById('tituloVentana');
+    if(tituloVentana) tituloVentana.textContent='Últimas '+ventana.value+' tiradas';
 
     sugerencia.textContent=nombre(grupoActual);
     document.getElementById('apuesta').textContent=pesos(apuestaActual);
@@ -316,12 +317,12 @@ La elección basada en tiradas anteriores es solo una regla de juego; no predice
 
     historial.innerHTML='';
 
-    var rev=tiradas.slice().reverse().slice(0,60);
+    var visibles=tiradas.slice(-60);
 
-    for(var k=0;k<rev.length;k++){
+    for(var k=0;k<visibles.length;k++){
       var el=document.createElement('div');
-      el.className='ball'+(rev[k]===0?' zero':'');
-      el.textContent=rev[k];
+      el.className='ball'+(visibles[k]===0?' zero':'');
+      el.textContent=visibles[k];
       historial.appendChild(el);
     }
 
