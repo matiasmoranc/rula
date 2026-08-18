@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Asistente de Docenas</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#111;color:#fff;margin:0;padding:18px}
+.wrap{max-width:620px;margin:auto}
+.card{background:#1d1d1d;border-radius:16px;padding:16px;margin:12px 0}
+h1{font-size:26px;text-align:center;margin:8px 0 4px}
+p{color:#bbb;line-height:1.4}
+.row{display:flex;gap:8px}
+input,select,button{font-size:18px;border-radius:12px;border:1px solid #444;padding:14px}
+input,select{background:#0e0e0e;color:#fff}
+input{width:100%;min-width:0}
+select{width:100%}
+button{background:#fff;color:#111;font-weight:700;border:0}
+.add{min-width:110px}
+.result{text-align:center;background:#0d0d0d;border-radius:14px;padding:20px}
+.result small{color:#aaa;display:block;margin-bottom:8px}
+.result strong{font-size:28px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.box{background:#0d0d0d;border-radius:10px;padding:12px;text-align:center}
+.box b{font-size:22px;display:block;margin-top:6px}
+.history{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.ball{width:38px;height:38px;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:700}
+.zero{background:#185a2a}
+.clear{width:100%;margin-top:12px;background:#4a1f1f;color:#fff}
+.msg{font-size:13px;color:#aaa;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Asistente de Docenas</h1>
+<p style="text-align:center">1–12 · 13–24 · 25–36 · El 0 queda fuera</p>
+
+<div class="card">
+<form id="form">
+<div class="row">
+<input id="numero" type="number" inputmode="numeric" min="0" max="36" placeholder="Número 0–36" required>
+<button class="add" type="submit">Agregar</button>
+</div>
+</form>
+<select id="metodo">
+<option value="fria">Elegir la docena menos salida</option>
+<option value="caliente">Elegir la docena más salida</option>
+<option value="azar">Elegir una docena al azar</option>
+</select>
+<div class="msg">La elección basada en tiradas anteriores es solo una regla de juego; no predice la próxima tirada.</div>
+</div>
+
+<div class="card">
+<div class="result">
+<small>Sugerencia para la próxima mano</small>
+<strong id="sugerencia">Cargá una tirada</strong>
+</div>
+</div>
+
+<div class="card">
+<div class="grid">
+<div class="box">1–12<b id="c1">0</b></div>
+<div class="box">13–24<b id="c2">0</b></div>
+<div class="box">25–36<b id="c3">0</b></div>
+</div>
+</div>
+
+<div class="card">
+<b>Historial</b>
+<div id="historial" class="history"></div>
+<button id="clear" class="clear" type="button">Borrar historial</button>
+</div>
+</div>
+
+<script>
+(function(){
+  var tiradas=[];
+  try{tiradas=JSON.parse(localStorage.getItem('tiradas_docenas_v2')||'[]');}catch(e){tiradas=[];}
+
+  var form=document.getElementById('form');
+  var input=document.getElementById('numero');
+  var metodo=document.getElementById('metodo');
+  var sugerencia=document.getElementById('sugerencia');
+  var historial=document.getElementById('historial');
+  var clear=document.getElementById('clear');
+
+  function docena(n){
+    if(n===0)return 0;
+    if(n>=1&&n<=12)return 1;
+    if(n>=13&&n<=24)return 2;
+    if(n>=25&&n<=36)return 3;
+    return -1;
+  }
+  function nombre(d){
+    if(d===1)return '1ª DOCENA (1–12)';
+    if(d===2)return '2ª DOCENA (13–24)';
+    if(d===3)return '3ª DOCENA (25–36)';
+    return '—';
+  }
+  function guardar(){
+    try{localStorage.setItem('tiradas_docenas_v2',JSON.stringify(tiradas));}catch(e){}
+  }
+  function actualizar(){
+    var ultimas=tiradas.slice(-12);
+    var counts=[0,0,0,0];
+    for(var i=0;i<ultimas.length;i++){
+      var d=docena(ultimas[i]);
+      if(d>=1&&d<=3)counts[d]++;
+    }
+    document.getElementById('c1').textContent=counts[1];
+    document.getElementById('c2').textContent=counts[2];
+    document.getElementById('c3').textContent=counts[3];
+
+    if(tiradas.length===0){
+      sugerencia.textContent='Cargá una tirada';
+    }else{
+      var dsel=1;
+      if(metodo.value==='azar'){
+        dsel=1+Math.floor(Math.random()*3);
+      }else{
+        var vals=[counts[1],counts[2],counts[3]];
+        var target=(metodo.value==='fria')?Math.min.apply(null,vals):Math.max.apply(null,vals);
+        var cand=[];
+        for(var j=0;j<3;j++){if(vals[j]===target)cand.push(j+1);}
+        dsel=cand[Math.floor(Math.random()*cand.length)];
+      }
+      sugerencia.textContent=nombre(dsel);
+    }
+
+    historial.innerHTML='';
+    var rev=tiradas.slice().reverse().slice(0,60);
+    for(var k=0;k<rev.length;k++){
+      var el=document.createElement('div');
+      el.className='ball'+(rev[k]===0?' zero':'');
+      el.textContent=rev[k];
+      historial.appendChild(el);
+    }
+  }
+
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var n=parseInt(input.value,10);
+    if(isNaN(n)||n<0||n>36){
+      alert('Ingresá un número entre 0 y 36.');
+      return;
+    }
+    tiradas.push(n);
+    guardar();
+    input.value='';
+    actualizar();
+    setTimeout(function(){input.focus();},50);
+  });
+
+  metodo.addEventListener('change',actualizar);
+
+  clear.addEventListener('click',function(){
+    if(confirm('¿Borrar todo el historial?')){
+      tiradas=[];
+      guardar();
+      actualizar();
+    }
+  });
+
+  actualizar();
+})();
+</script>
+</body>
+</html>
