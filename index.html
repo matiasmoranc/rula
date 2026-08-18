@@ -21,6 +21,7 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 .result small{color:#aaa;display:block;margin-bottom:8px}
 .result strong{font-size:28px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .box{background:#0d0d0d;border-radius:10px;padding:12px;text-align:center}
 .box b{font-size:22px;display:block;margin-top:6px}
 .history{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
@@ -28,12 +29,61 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 .zero{background:#185a2a}
 .clear{width:100%;margin-top:12px;background:#4a1f1f;color:#fff}
 .msg{font-size:13px;color:#aaa;margin-top:10px}
+.info{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #333}
+.info:last-child{border-bottom:0}
+.info span{color:#aaa}
+.good{color:#5ee58a}
+.bad{color:#ff7777}
+.money{font-size:34px!important}
+.topbar{display:flex;justify-content:flex-end;margin-bottom:8px}
+.menu-btn{width:48px;height:48px;padding:0;background:#1d1d1d;color:#fff;border:1px solid #444;font-size:24px;line-height:1}
+.menu-panel{display:none;background:#1d1d1d;border-radius:16px;padding:16px;margin:12px 0}
+.menu-panel.open{display:block}
+.menu-panel label{display:block;color:#aaa;font-size:13px;margin:10px 0 6px}
+.menu-panel label:first-child{margin-top:0}
+.kpi{background:#0d0d0d;border-radius:12px;padding:14px;text-align:center}
+.kpi small{display:block;color:#aaa;margin-bottom:6px}
+.kpi b{font-size:24px;display:block}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(max-width:520px){
+  .row{flex-direction:column}
+  .add{width:100%}
+  .grid2{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>Asistente de Docenas</h1>
-<p style="text-align:center">1–12 · 13–24 · 25–36 · El 0 queda fuera</p>
+<div class="topbar">
+<button id="menuBtn" class="menu-btn" type="button" aria-label="Abrir configuración">☰</button>
+</div>
+
+<div id="menuPanel" class="menu-panel">
+<label for="metodo">Método</label>
+<select id="metodo">
+<option value="fria">Elegir la docena menos salida</option>
+<option value="caliente">Elegir la docena más salida</option>
+<option value="azar">Elegir una docena al azar</option>
+</select>
+
+<label for="ventana">Cantidad de tiradas a analizar</label>
+<select id="ventana">
+<option value="12">Últimas 12 tiradas</option>
+<option value="20">Últimas 20 tiradas</option>
+<option value="25">Últimas 25 tiradas</option>
+<option value="30">Últimas 30 tiradas</option>
+</select>
+
+<label for="multiplo">Múltiplo / apuesta base</label>
+<select id="multiplo">
+<option value="5">Múltiplos de $5</option>
+<option value="10">Múltiplos de $10</option>
+</select>
+
+<div class="msg">
+La elección basada en tiradas anteriores es solo una regla de juego; no predice la próxima tirada.
+</div>
+</div>
 
 <div class="card">
 <form id="form">
@@ -42,18 +92,37 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 <button class="add" type="submit">Agregar</button>
 </div>
 </form>
-<select id="metodo">
-<option value="fria">Elegir la docena menos salida</option>
-<option value="caliente">Elegir la docena más salida</option>
-<option value="azar">Elegir una docena al azar</option>
-</select>
-<div class="msg">La elección basada en tiradas anteriores es solo una regla de juego; no predice la próxima tirada.</div>
 </div>
+
+
 
 <div class="card">
 <div class="result">
 <small>Sugerencia para la próxima mano</small>
-<strong id="sugerencia">Cargá una tirada</strong>
+<strong id="sugerencia">1ª DOCENA (1–12)</strong>
+</div>
+</div>
+
+<div class="card">
+<div class="result">
+<small>Apostar en cada número</small>
+<strong class="money" id="apuesta">$5</strong>
+</div>
+
+
+
+<div class="info"><span>Total a apostar en los 12 números</span><b id="totalMano">$60</b></div>
+<div class="info"><span>Pérdidas acumuladas</span><b id="perdidas">$0</b></div>
+<div class="info"><span>Mano actual</span><b id="mano">1</b></div>
+<div class="info"><span>Último resultado</span><b id="estado">—</b></div>
+</div>
+
+<div class="card">
+<div class="kpis">
+  <div class="kpi"><small>Ganancia total</small><b id="gananciaTotal">$0</b></div>
+  <div class="kpi"><small>Total apostado</small><b id="apostadoTotal">$0</b></div>
+  <div class="kpi"><small>Aciertos</small><b id="aciertos">0</b></div>
+  <div class="kpi"><small>Fallos</small><b id="fallos">0</b></div>
 </div>
 </div>
 
@@ -74,15 +143,47 @@ button{background:#fff;color:#111;font-weight:700;border:0}
 
 <script>
 (function(){
+
   var tiradas=[];
-  try{tiradas=JSON.parse(localStorage.getItem('tiradas_docenas_v2')||'[]');}catch(e){tiradas=[];}
+  var mano=1;
+  var perdidas=0;
+  var apuestaActual=5;
+  var grupoActual=1;
+  var ultimoEstado='—';
+  var gananciaTotal=0;
+  var apostadoTotal=0;
+  var aciertos=0;
+  var fallos=0;
+
+  try{
+    var guardado=JSON.parse(localStorage.getItem('asistente_docenas_apuestas_v1')||'null');
+    if(guardado){
+      tiradas=guardado.tiradas||[];
+      mano=guardado.mano||1;
+      perdidas=guardado.perdidas||0;
+      apuestaActual=guardado.apuestaActual||5;
+      grupoActual=guardado.grupoActual||1;
+      ultimoEstado=guardado.ultimoEstado||'—';
+      gananciaTotal=guardado.gananciaTotal||0;
+      apostadoTotal=guardado.apostadoTotal||0;
+      aciertos=guardado.aciertos||0;
+      fallos=guardado.fallos||0;
+      if(guardado.metodo) document.getElementById('metodo').value=guardado.metodo;
+      if(guardado.multiplo) document.getElementById('multiplo').value=String(guardado.multiplo);
+      if(guardado.ventana) document.getElementById('ventana').value=String(guardado.ventana);
+    }
+  }catch(e){}
 
   var form=document.getElementById('form');
   var input=document.getElementById('numero');
   var metodo=document.getElementById('metodo');
+  var multiplo=document.getElementById('multiplo');
+  var ventana=document.getElementById('ventana');
   var sugerencia=document.getElementById('sugerencia');
   var historial=document.getElementById('historial');
   var clear=document.getElementById('clear');
+  var menuBtn=document.getElementById('menuBtn');
+  var menuPanel=document.getElementById('menuPanel');
 
   function docena(n){
     if(n===0)return 0;
@@ -91,77 +192,264 @@ button{background:#fff;color:#111;font-weight:700;border:0}
     if(n>=25&&n<=36)return 3;
     return -1;
   }
+
   function nombre(d){
     if(d===1)return '1ª DOCENA (1–12)';
     if(d===2)return '2ª DOCENA (13–24)';
     if(d===3)return '3ª DOCENA (25–36)';
     return '—';
   }
-  function guardar(){
-    try{localStorage.setItem('tiradas_docenas_v2',JSON.stringify(tiradas));}catch(e){}
+
+  function pesos(n){
+    return '$'+Number(n).toLocaleString('es-UY');
   }
-  function actualizar(){
-    var ultimas=tiradas.slice(-12);
+
+  function guardar(){
+    try{
+      localStorage.setItem('asistente_docenas_apuestas_v1',JSON.stringify({
+        tiradas:tiradas,
+        mano:mano,
+        perdidas:perdidas,
+        apuestaActual:apuestaActual,
+        grupoActual:grupoActual,
+        ultimoEstado:ultimoEstado,
+        gananciaTotal:gananciaTotal,
+        apostadoTotal:apostadoTotal,
+        aciertos:aciertos,
+        fallos:fallos,
+        metodo:metodo.value,
+        multiplo:parseInt(multiplo.value,10),
+        ventana:parseInt(ventana.value,10)
+      }));
+    }catch(e){}
+  }
+
+  function elegirGrupo(){
+    var ultimas=tiradas.slice(-parseInt(ventana.value,10));
     var counts=[0,0,0,0];
+
     for(var i=0;i<ultimas.length;i++){
       var d=docena(ultimas[i]);
       if(d>=1&&d<=3)counts[d]++;
     }
+
     document.getElementById('c1').textContent=counts[1];
     document.getElementById('c2').textContent=counts[2];
     document.getElementById('c3').textContent=counts[3];
 
-    if(tiradas.length===0){
-      sugerencia.textContent='Cargá una tirada';
+    var dsel=1;
+
+    if(metodo.value==='azar'){
+      dsel=1+Math.floor(Math.random()*3);
     }else{
-      var dsel=1;
-      if(metodo.value==='azar'){
-        dsel=1+Math.floor(Math.random()*3);
-      }else{
-        var vals=[counts[1],counts[2],counts[3]];
-        var target=(metodo.value==='fria')?Math.min.apply(null,vals):Math.max.apply(null,vals);
-        var cand=[];
-        for(var j=0;j<3;j++){if(vals[j]===target)cand.push(j+1);}
-        dsel=cand[Math.floor(Math.random()*cand.length)];
+      var vals=[counts[1],counts[2],counts[3]];
+      var target=(metodo.value==='fria')
+        ? Math.min.apply(null,vals)
+        : Math.max.apply(null,vals);
+
+      var cand=[];
+      for(var j=0;j<3;j++){
+        if(vals[j]===target)cand.push(j+1);
       }
-      sugerencia.textContent=nombre(dsel);
+      dsel=cand[Math.floor(Math.random()*cand.length)];
     }
 
+    return dsel;
+  }
+
+  function calcularProximaApuesta(){
+    var base=parseInt(multiplo.value,10);
+
+    if(perdidas<=0){
+      return base;
+    }
+
+    /*
+      Con 12 números:
+      total de mano = 12 * apuesta
+      premio = 36 * apuesta
+      beneficio neto de la mano = 24 * apuesta
+
+      Necesitamos:
+      24 * apuesta > pérdidas acumuladas
+    */
+
+    var necesaria=perdidas/24;
+    var pasos=Math.floor(necesaria/base)+1;
+    var apuesta=pasos*base;
+
+    if(apuesta<base) apuesta=base;
+
+    return apuesta;
+  }
+
+  function actualizar(){
+    var ultimas=tiradas.slice(-parseInt(ventana.value,10));
+    var counts=[0,0,0,0];
+
+    for(var i=0;i<ultimas.length;i++){
+      var d=docena(ultimas[i]);
+      if(d>=1&&d<=3)counts[d]++;
+    }
+
+    document.getElementById('c1').textContent=counts[1];
+    document.getElementById('c2').textContent=counts[2];
+    document.getElementById('c3').textContent=counts[3];
+    document.getElementById('tituloVentana').textContent='Últimas '+ventana.value+' tiradas';
+
+    sugerencia.textContent=nombre(grupoActual);
+    document.getElementById('apuesta').textContent=pesos(apuestaActual);
+    document.getElementById('totalMano').textContent=pesos(apuestaActual*12);
+    document.getElementById('perdidas').textContent=pesos(perdidas);
+    document.getElementById('mano').textContent=mano;
+    document.getElementById('gananciaTotal').textContent=pesos(gananciaTotal);
+    document.getElementById('apostadoTotal').textContent=pesos(apostadoTotal);
+    document.getElementById('aciertos').textContent=aciertos;
+    document.getElementById('fallos').textContent=fallos;
+
+    var estado=document.getElementById('estado');
+    estado.textContent=ultimoEstado;
+    estado.className='';
+
+    if(ultimoEstado==='ACIERTO') estado.className='good';
+    if(ultimoEstado==='FALLO') estado.className='bad';
+
     historial.innerHTML='';
+
     var rev=tiradas.slice().reverse().slice(0,60);
+
     for(var k=0;k<rev.length;k++){
       var el=document.createElement('div');
       el.className='ball'+(rev[k]===0?' zero':'');
       el.textContent=rev[k];
       historial.appendChild(el);
     }
+
+    guardar();
   }
+
+  menuBtn.addEventListener('click',function(){
+    var abierto=menuPanel.classList.toggle('open');
+    menuBtn.textContent=abierto?'✕':'☰';
+    menuBtn.setAttribute('aria-label',abierto?'Cerrar configuración':'Abrir configuración');
+  });
 
   form.addEventListener('submit',function(e){
     e.preventDefault();
+
     var n=parseInt(input.value,10);
+
     if(isNaN(n)||n<0||n>36){
       alert('Ingresá un número entre 0 y 36.');
       return;
     }
+
+    /*
+      La apuesta que acabamos de jugar es:
+      grupoActual + apuestaActual
+    */
+    var grupoSalido=docena(n);
+    var acierto=(grupoSalido===grupoActual);
+
     tiradas.push(n);
-    guardar();
+
+    var totalEstaMano=apuestaActual*12;
+    apostadoTotal += totalEstaMano;
+
+    if(acierto){
+      ultimoEstado='ACIERTO';
+      aciertos++;
+
+      /*
+        Ganancia neta del ciclo:
+        premio - apuesta de esta mano - pérdidas anteriores.
+      */
+      var premio=apuestaActual*36;
+      var gananciaCiclo=premio-totalEstaMano-perdidas;
+      gananciaTotal += gananciaCiclo;
+
+      /*
+        Si acertamos, recuperamos y reiniciamos.
+      */
+      perdidas=0;
+      mano=1;
+
+      grupoActual=elegirGrupo();
+      apuestaActual=parseInt(multiplo.value,10);
+
+    }else{
+      ultimoEstado='FALLO';
+      fallos++;
+
+      /*
+        Sumamos lo perdido en esta mano.
+      */
+      perdidas += apuestaActual*12;
+      mano++;
+
+      grupoActual=elegirGrupo();
+      apuestaActual=calcularProximaApuesta();
+    }
+
     input.value='';
     actualizar();
-    setTimeout(function(){input.focus();},50);
+
+    setTimeout(function(){
+      input.focus();
+    },50);
   });
 
-  metodo.addEventListener('change',actualizar);
+  metodo.addEventListener('change',function(){
+    grupoActual=elegirGrupo();
+    actualizar();
+  });
+
+  ventana.addEventListener('change',function(){
+    grupoActual=elegirGrupo();
+    actualizar();
+  });
+
+  multiplo.addEventListener('change',function(){
+    /*
+      Al cambiar el múltiplo:
+      si no hay pérdidas usamos la nueva apuesta base.
+      si hay pérdidas recalculamos la apuesta mínima necesaria.
+    */
+    if(perdidas===0){
+      apuestaActual=parseInt(multiplo.value,10);
+    }else{
+      apuestaActual=calcularProximaApuesta();
+    }
+    actualizar();
+  });
 
   clear.addEventListener('click',function(){
-    if(confirm('¿Borrar todo el historial?')){
+    if(confirm('¿Borrar todo el historial y reiniciar la progresión?')){
       tiradas=[];
-      guardar();
+      mano=1;
+      perdidas=0;
+      apuestaActual=parseInt(multiplo.value,10);
+      grupoActual=1;
+      ultimoEstado='—';
+      gananciaTotal=0;
+      apostadoTotal=0;
+      aciertos=0;
+      fallos=0;
+      try{localStorage.removeItem('asistente_docenas_apuestas_v1');}catch(e){}
       actualizar();
     }
   });
 
+  /*
+    Si es primera vez:
+  */
+  if(tiradas.length===0 && perdidas===0){
+    apuestaActual=parseInt(multiplo.value,10);
+    grupoActual=1;
+  }
+
   actualizar();
+
 })();
 </script>
 </body>
